@@ -29,7 +29,7 @@ import itertools as I
 import earleyparser
 import hdd
 import fuzzer
-import ddset
+#import ddset
 import gatleast
 
 # # Producing inputs with two fault inducing fragments guaranteed to be present.
