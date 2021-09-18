@@ -6,6 +6,7 @@ import gmultiple
 import gexpr
 import gnegated
 import gatleast
+import grandom
 import itertools as I
 
 def _sp(t,p):
@@ -361,9 +362,11 @@ def is_reach_sufficient(start, tree, path, cgrammar, base_grammar, predicate, re
         reach_g[my_key] = [rule]
     else:
         assert my_key == reach_s
-        reach_g[reach_s] = reach_g[reach_s] + [rule]
+        #reach_g[reach_s] = reach_g[reach_s] + [rule]
+        reach_g[reach_s] = gmultiple.or_definitions(reach_g[reach_s], [rule])
 
     new_grammar = {**reach_g, **base_grammar, **cgrammar}
+    new_grammar, reach_s = complete(new_grammar, base_grammar, reach_s, reachable_keys)
     if validate_grammar(new_grammar, my_key, tree, path, predicate):
         return new_grammar, my_key
     return {}, None
@@ -382,11 +385,12 @@ def can_and_conditions(start, tree, path, cgrammar, base_grammar, predicate, gch
         return n_grammar, n_start
     return {}, None
 
-MAX_TRIES_FOR_ABSTRACTION = 100
+MAX_TRIES_FOR_ABSTRACTION = 1000
 def validate_grammar(grammar, start, tree, path, predicate):
     i = 0
+    cache = None
     while (i < MAX_TRIES_FOR_ABSTRACTION):
-        _, gnode = generate_random_value(grammar, start)
+        cache, gnode = generate_random_value(grammar, start, cache)
         t = replace_path(tree, path, gnode)
         with open('/tmp/ddgen.log', 'w+') as f:
             s = fuzzer.iter_tree_to_str(t)
@@ -441,10 +445,20 @@ def replace_path(tree, path, new_node=None):
 
 # Given a key, generate a random value for that key using the grammar. 
 
-def generate_random_value(grammar, key):
-    my_fuzzer = fuzzer.LimitFuzzer(grammar)
+def generate_random_value(grammar, key, my_fuzzer=None):
+    if my_fuzzer is None:
+        my_fuzzer = fuzzer.LimitFuzzer(grammar)
     t = my_fuzzer.iter_gen_key(key, max_depth=10)
-    return (fuzzer.tree_to_string(t), t)
+    return (my_fuzzer, t)
+
+import random
+def generate_random_value(grammar, start, rscfg=None):
+    max_len = 10
+    if rscfg is None:
+        rscfg = grandom.RandomSampleCFG(grammar)
+        rscfg.produce_shared_forest(start, max_len)
+    v, tree = rscfg.random_sample(start, max_len)
+    return (rscfg, tree)
 
 def abstract_tree_to_string(t):
     name, children, grammar = t
