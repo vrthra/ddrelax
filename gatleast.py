@@ -42,10 +42,10 @@
 import sys, imp, pprint
 
 # We import the following modules
-imort earleyparser
-imort hdd
-imort fuzzer
-imort ddset
+import earleyparser
+import hdd
+import fuzzer
+#imort ddset
 
 # We have our input that causes the failure.
 
