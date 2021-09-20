@@ -366,7 +366,7 @@ def is_reach_sufficient(start, tree, path, cgrammar, base_grammar, predicate, re
         reach_g[reach_s] = gmultiple.or_definitions(reach_g[reach_s], [rule])
 
     new_grammar = {**reach_g, **base_grammar, **cgrammar}
-    new_grammar, reach_s = complete(new_grammar, base_grammar, reach_s, reachable_keys)
+    new_grammar, reach_s = complete(new_grammar, base_grammar, my_key, reachable_keys)
     if validate_grammar(new_grammar, my_key, tree, path, predicate):
         return new_grammar, my_key
     return {}, None
