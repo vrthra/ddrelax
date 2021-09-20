@@ -191,17 +191,17 @@ def shrink_and(my_and):
     #inner_bexpr = and_bexpr[1][2][1][0]
     return fuzzer.tree_to_string(and_bexpr)
 
-def shrink_and_key(t, my_and, sand):
+def replace_suffix_expr_in_key(t, my_and, sand):
     #if not fuzzer.is_nonterminal(t): return t
     #if gatleast.is_base_key(t): return t
     return t.replace(my_and, sand)
 
 
-def shrink_and_key_in_rule(rule, my_and, sand):
-    return [shrink_and_key(t, my_and, sand) for t in rule]
+def replace_suffix_expr_in_key_rule(rule, my_and, sand):
+    return [replace_suffix_expr_in_key(t, my_and, sand) for t in rule]
 
-def shrink_and_key_in_def(rules, my_and, sand):
-    return [shrink_and_key_in_rule(rule, my_and, sand) for rule in rules]
+def replace_suffix_expr_in_key_def(rules, my_and, sand):
+    return [replace_suffix_expr_in_key_rule(rule, my_and, sand) for rule in rules]
 
 def verify_equal_rules(rules1, rules2):
     for r1 in rules1:
@@ -211,22 +211,26 @@ def verify_equal_rules(rules1, rules2):
 def shrink_and_key_in_grammar(my_g, my_s, my_and):
     suffix_and = get_suffix(my_and)
     shrunk_and = shrink_and(suffix_and)
-    new_s = shrink_and_key(my_s, suffix_and, shrunk_and)
+    return replace_suffix_expr_in_key_grammar(my_g, my_s, suffix_and, shrunk_and)
 
+def replace_suffix_expr_in_key_grammar(my_g, my_s, suffix_expr, new_expr):
+    new_s = replace_suffix_expr_in_key(my_s, suffix_expr, new_expr)
     new_g = {}
     for k in my_g:
         if gatleast.is_base_key(k):
             new_g[k] = my_g[k]
             continue
-        # replace my_and with shrunk_and
-        new_k = shrink_and_key(k, suffix_and, shrunk_and)
-        new_rules = shrink_and_key_in_def(my_g[k], suffix_and, shrunk_and)
+        # replace my_and with new_expr
+        new_k = replace_suffix_expr_in_key(k, suffix_expr, new_expr)
+        new_rules = replace_suffix_expr_in_key_def(my_g[k], suffix_expr, new_expr)
         if new_k in new_g:
             verify_equal_rules(new_g[new_k], new_rules)
         else:
             new_g[new_k] = new_rules
     return new_g, new_s
 
+def replace_and(new_g, new_s, suffix_expr, new_expr):
+    return replace_suffix_expr_in_key_grammar(new_g, new_s, suffix_expr, new_expr)
 
 def unwrap_ands(g, s, predicate):
     #at this point, there are many and(X) wraps which only wrap one single
