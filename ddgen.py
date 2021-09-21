@@ -77,7 +77,7 @@ class ReconstructRules(gexpr.ReconstructRules):
                     has_rule = True
                     break
             if not has_rule: other_rules.append(rule)
-        assert len(p_rules) <= 1
+        # assert len(p_rules) <= 1 # Note: This assertion assumes the original grammar is suffix free.
         return p_rules, other_rules
 
     def reconstruct_neg_bexpr(self, key, bexpr):
