@@ -208,8 +208,7 @@ def verify_equal_rules(rules1, rules2):
         assert len([r2 for r2 in rules2 if r1 == r2]) == 1
     return True
 
-def shrink_and_key_in_grammar(my_g, my_s, my_and):
-    suffix_and = get_suffix(my_and)
+def shrink_and_key_in_grammar(my_g, my_s, suffix_and):
     shrunk_and = shrink_and(suffix_and)
     return replace_suffix_expr_in_key_grammar(my_g, my_s, suffix_and, shrunk_and)
 
@@ -242,11 +241,13 @@ def unwrap_ands(g, s, predicate):
     while True:
         my_and = find_single_and(new_g)
         if my_and is None: break
-        new_g_, new_s_ = shrink_and_key_in_grammar(new_g, new_s, my_and)
+
+        suffix_and = get_suffix(my_and)
+        new_g_, new_s_ = shrink_and_key_in_grammar(new_g, new_s, suffix_and)
         if validate_grammar(new_g_, new_s_, (), [], predicate):
             new_g, new_s = new_g_, new_s_
         else:
-            new_g, new_s = replace_and(new_g, new_s, my_and, new_fault_val())
+            new_g, new_s = replace_and(new_g, new_s, suffix_and, new_fault_val())
     return new_g, new_s
 
 def remove_grammar(cs):
