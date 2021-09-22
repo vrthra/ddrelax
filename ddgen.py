@@ -257,8 +257,9 @@ def unwrap_ands(g, s, t, predicate):
             new_g, new_s = new_g_, new_s_
             new_tree = replace_suffix_in_tree(new_tree, suffix_and, shrunk_and)
         else:
-            new_g, new_s = replace_and(new_g, new_s, suffix_and, new_fault_val())
-            new_tree = replace_suffix_in_tree(new_tree, suffix_and, new_fault_val())
+            fault_val = new_fault_val()
+            new_g, new_s = replace_and(new_g, new_s, suffix_and, fault_val)
+            new_tree = replace_suffix_in_tree(new_tree, suffix_and, fault_val)
     return new_g, new_s, new_tree
 
 def remove_grammar(cs):
