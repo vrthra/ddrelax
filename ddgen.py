@@ -142,8 +142,10 @@ def ddgen(reduced_tree, grammar, predicate):
     # sufficient. The, move to the next peer, and eventually move to the parent.
     reachable_keys = gatleast.reachable_dict(grammar)
     gs = generalize_bottomup_dd(reduced_tree, [], grammar, predicate, reachable_keys)
-    ug = unwrap_ands(gs[2], gs[0], predicate)
-    return (ug[1], gs[1], ug[0])
+    ug, s, t = unwrap_ands(gs[2], gs[0], gs, predicate)
+    assert t[0] == s
+    assert s in ug
+    return (t[0], t[1], ug)
 
 # BEXPR_GRAMMAR = {
 #     '<start>': [['<bexpr>']],
@@ -208,9 +210,14 @@ def verify_equal_rules(rules1, rules2):
         assert len([r2 for r2 in rules2 if r1 == r2]) == 1
     return True
 
-def shrink_and_key_in_grammar(my_g, my_s, suffix_and):
-    shrunk_and = shrink_and(suffix_and)
+def shrink_and_key_in_grammar(my_g, my_s, suffix_and, shrunk_and):
     return replace_suffix_expr_in_key_grammar(my_g, my_s, suffix_and, shrunk_and)
+
+
+def replace_suffix_in_tree(tree, suffix_expr, new_expr):
+    name, children, *_ = tree
+    if not fuzzer.is_nonterminal(name): return name
+    return (replace_suffix_expr_in_key(name, suffix_expr, new_expr), children)
 
 def replace_suffix_expr_in_key_grammar(my_g, my_s, suffix_expr, new_expr):
     new_s = replace_suffix_expr_in_key(my_s, suffix_expr, new_expr)
@@ -231,24 +238,28 @@ def replace_suffix_expr_in_key_grammar(my_g, my_s, suffix_expr, new_expr):
 def replace_and(new_g, new_s, suffix_expr, new_expr):
     return replace_suffix_expr_in_key_grammar(new_g, new_s, suffix_expr, new_expr)
 
-def unwrap_ands(g, s, predicate):
+def unwrap_ands(g, s, t, predicate):
     #at this point, there are many and(X) wraps which only wrap one single
     # argument X. It could be that this represents X or it could be that
     # the particular rule expansion (e.g '(' X ')' is required for X. If it is
     # the first case, unwrap it to X. If it is the second case, rename and(X)
     # to a new nonterminal Y, and replace all instances in the grammar
     new_g, new_s = g, s
+    new_tree = t
     while True:
         my_and = find_single_and(new_g)
         if my_and is None: break
 
         suffix_and = get_suffix(my_and)
-        new_g_, new_s_ = shrink_and_key_in_grammar(new_g, new_s, suffix_and)
+        shrunk_and = shrink_and(suffix_and)
+        new_g_, new_s_ = shrink_and_key_in_grammar(new_g, new_s, suffix_and, shrunk_and)
         if validate_grammar(new_g_, new_s_, (), [], predicate):
             new_g, new_s = new_g_, new_s_
+            new_tree = replace_suffix_in_tree(new_tree, suffix_and, shrunk_and)
         else:
             new_g, new_s = replace_and(new_g, new_s, suffix_and, new_fault_val())
-    return new_g, new_s
+            new_tree = replace_suffix_in_tree(new_tree, suffix_and, new_fault_val())
+    return new_g, new_s, new_tree
 
 def remove_grammar(cs):
     return [(n, cs) for (n,cs,g) in cs]
@@ -664,19 +675,19 @@ E_START = '<start>'
 
 if __name__ == '__main__':
     my_input = '1+((1))'
-    expr_parser = earleyparser.EarleyParser(hdd.EXPR_GRAMMAR)
-    parsed_expr = list(expr_parser.parse_on(my_input, hdd.EXPR_START))[0]
-    reduced_expr_tree = hdd.perses_reduction(parsed_expr, hdd.EXPR_GRAMMAR, check_doubled_paren)
+    expr_parser = earleyparser.EarleyParser(E_GRAMMAR)
+    parsed_expr = list(expr_parser.parse_on(my_input, E_START))[0]
+    reduced_expr_tree = hdd.perses_reduction(parsed_expr, E_GRAMMAR, check_doubled_paren)
 
-    pattern = ddgen(reduced_expr_tree, hdd.EXPR_GRAMMAR, check_doubled_paren)
+    pattern = ddgen(reduced_expr_tree, E_GRAMMAR, check_doubled_paren)
     gatleast.display_grammar(pattern[2], pattern[0])
 
 
     # The idea for negating these grammars is this: We extract the
     # pattern grammars out of these, and negate them
     new_grammar, new_start = negate_grammar_(pattern[2], pattern[0])
-    base_grammar = hdd.EXPR_GRAMMAR
-    reachable_keys = gatleast.reachable_dict(hdd.EXPR_GRAMMAR)
+    base_grammar = E_GRAMMAR
+    reachable_keys = gatleast.reachable_dict(E_GRAMMAR)
     g,s = complete(new_grammar, base_grammar, new_start, reachable_keys)
     gatleast.display_grammar(g, s)
 
