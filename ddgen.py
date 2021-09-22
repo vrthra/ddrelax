@@ -216,8 +216,9 @@ def shrink_and_key_in_grammar(my_g, my_s, suffix_and, shrunk_and):
 
 def replace_suffix_in_tree(tree, suffix_expr, new_expr):
     name, children, *_ = tree
-    if not fuzzer.is_nonterminal(name): return name
-    return (replace_suffix_expr_in_key(name, suffix_expr, new_expr), children)
+    if not fuzzer.is_nonterminal(name): return (name, children)
+    return (replace_suffix_expr_in_key(name, suffix_expr, new_expr),
+            [replace_suffix_in_tree(c, suffix_expr, new_expr) for c in children])
 
 def replace_suffix_expr_in_key_grammar(my_g, my_s, suffix_expr, new_expr):
     new_s = replace_suffix_expr_in_key(my_s, suffix_expr, new_expr)
