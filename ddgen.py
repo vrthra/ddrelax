@@ -658,8 +658,8 @@ def negate_definition(specialized_key, refined_rules, grammar):
 
 def negate_grammar_(grammar, start):
     nstart = negate_nonterminal(start)
-    defs = negate_definition(nstart, grammar[start], grammar)
-    grammar[nstart] = defs
+    #defs = negate_definition(nstart, grammar[start], grammar)
+    #grammar[nstart] = defs
     return grammar, nstart
 
 #  We extend ReconstructRules with negation
