@@ -9,6 +9,8 @@ import gatleast
 import grandom
 import itertools as I
 
+MERGE_OR_DEFINITIONS = True
+
 def _sp(t,p):
     return fuzzer.tree_to_string(hdd.get_child(t,p))
 
@@ -380,8 +382,10 @@ def is_reach_sufficient(start, tree, path, cgrammar, base_grammar, predicate, re
         reach_g[my_key] = [rule]
     else:
         assert my_key == reach_s
-        #reach_g[reach_s] = reach_g[reach_s] + [rule]
-        reach_g[reach_s] = gmultiple.or_definitions(reach_g[reach_s], [rule])
+        if MERGE_OR_DEFINITIONS:
+            reach_g[reach_s] = gmultiple.or_definitions(reach_g[reach_s], [rule], merge_with_or=False)
+        else:
+            reach_g[reach_s] = reach_g[reach_s] + [rule]
 
     new_grammar = {**reach_g, **base_grammar, **cgrammar}
     new_grammar, reach_s = complete(new_grammar, base_grammar, my_key, reachable_keys)
