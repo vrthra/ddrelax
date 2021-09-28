@@ -89,8 +89,8 @@ class ReconstructRules(gexpr.ReconstructRules):
         # is to get the inner(f_key) rules, and search for
         # any other refinements in any other rules. If we
         # have such a rule, then we have a pattern grammar.
-        # extract the pattern, negate it, then use it to
-        # reconstruct.
+        # extract the complete pattern, negate it, then use it to
+        # reconstruct. TODO:
         negated_pattern_rules = []
         prule, orules = self.pattern_rules_from_key(f_key, bexpr)
         #if prule:
