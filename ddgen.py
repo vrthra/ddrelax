@@ -134,6 +134,9 @@ class ReconstructRules(gexpr.ReconstructRules):
             # now negate this with pattern negation.
             fault_suffix = get_suffix(f_key)
             npg, nps = gnegated.negate_pattern_grammar(pg, ps, self.base_grammar, fault_suffix)
+            # TODO: needs care here. Any refined nts that are like
+            # abstracts need to be reach-negated, and added as an
+            # extra option.
             self.grammar.update({k:npg[k] for k in npg if k != nps})
             negated_pattern_rules = npg[nps]
         else:
