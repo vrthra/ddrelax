@@ -106,7 +106,6 @@ class ReconstructRules(gexpr.ReconstructRules):
         # prule.
 
         combined_rules = gmultiple.and_definitions(d1, negated_pattern_rules)
-        #combined_rules = d1 + negated_pattern_rules # TODO; should this be `and`ed?
         return combined_rules, f_key
 
 
