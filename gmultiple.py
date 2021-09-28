@@ -320,15 +320,23 @@ def or_tokens(t1, t2):
 # `<A or(1,2)><B 5><C>`. However `or(<A 1> <B 5> <C>, <A 2> <B 6> <C>)`
 # is not mergeable.
 
-def or_rules(ruleA, ruleB):
+def or_rules(ruleA, ruleB, merge_with_or=True):
     pos = []
     for i,(t1,t2) in enumerate(zip(ruleA, ruleB)):
         if t1 == t2: continue
         else: pos.append(i)
     if len(pos) == 0: return [ruleA]
     elif len(pos) == 1:
-        return [[or_tokens(ruleA[i], ruleB[i]) if i == pos[0] else t
+        result = [[or_tokens(ruleA[i], ruleB[i]) if i == pos[0] else t
                 for i,t in enumerate(ruleA)]]
+        if merge_with_or: return result
+        # if what we have at pos[0] is a base key, then we return the
+        # rule. else we do not.
+        merged = result[0][pos[0]]
+        if gatleast.is_base_key(merged):
+            return result
+        else:
+            return [ruleA, ruleB]
     else: return [ruleA, ruleB]
 
 if __name__ == '__main__':
@@ -350,7 +358,7 @@ if __name__ == '__main__':
 # both rulesets together then (optional) take one at a time,
 # and check if it can be merged with another.
 
-def or_ruleset(rulesetA, rulesetB):
+def or_ruleset(rulesetA, rulesetB, merge_with_or=True):
     rule,*rules = (rulesetA + rulesetB)
     current_rules = [rule]
     while rules:
@@ -358,7 +366,7 @@ def or_ruleset(rulesetA, rulesetB):
         new_rules = []
         modified = False
         for i,r in enumerate(current_rules):
-            v =  or_rules(r, rule)
+            v =  or_rules(r, rule, merge_with_or)
             if len(v) == 1:
                 current_rules[i] = v[0]
                 rule = None
@@ -379,12 +387,12 @@ if __name__ == '__main__':
 # ### definition disjunction
 # Now, we can define the disjunction of definitions as follows.
 
-def or_definitions(rulesA, rulesB):
+def or_definitions(rulesA, rulesB, merge_with_or=True):
     AorB_rules = []
     rulesetsA, rulesetsB = get_rulesets(rulesA), get_rulesets(rulesB)
     keys = set(rulesetsA.keys()) | set(rulesetsB.keys())
     for k in keys:
-        new_rules = or_ruleset(rulesetsA.get(k, []), rulesetsB.get(k, []))
+        new_rules = or_ruleset(rulesetsA.get(k, []), rulesetsB.get(k, []), merge_with_or)
         AorB_rules.extend(new_rules)
     return AorB_rules
 
