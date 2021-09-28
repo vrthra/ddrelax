@@ -45,8 +45,15 @@ def reachable_grammar(grammar, start, cnodesym, suffix, reachable):
         if key == start: s_key = fk
         new_grammar[fk] = rules
     return new_grammar, s_key
+
 import pudb
 bp = pudb.set_trace
+
+def simplify_key(k):
+    stem, refinement = split(k)
+    v = gexpr.BExpr(refinement)
+    return v.simplify().with_key(k)
+
 class ReconstructRules(gexpr.ReconstructRules):
     def __init__(self, grammar, base_grammar, reachable):
         self.grammar = grammar
@@ -74,12 +81,16 @@ class ReconstructRules(gexpr.ReconstructRules):
             for t in rule:
                 if not fuzzer.is_nonterminal(t): continue
                 if gatleast.is_base_key(t): continue
-                if nbexpr._simple != get_suffix(t):
+                # now check if t has same suffix as nbexpr
+                # TODO: verify if we need to simplify t
+                # TODO; we also need to check name for other abs. root nodes.
+                if nbexpr.with_key(t) != simplify_key(t):
                     p_rules.append(rule)
                     has_rule = True
                     break
             if not has_rule: other_rules.append(rule)
-        # assert len(p_rules) <= 1 # Note: This assertion assumes the original grammar is suffix free.
+        # Note: This assertion assumes the original grammar is suffix free.
+        assert len(p_rules) <= 1
         return p_rules, other_rules
 
     def reconstruct_neg_bexpr(self, key, bexpr):
@@ -143,10 +154,42 @@ def ddgen(reduced_tree, grammar, predicate):
     # sufficient. The, move to the next peer, and eventually move to the parent.
     reachable_keys = gatleast.reachable_dict(grammar)
     gs = generalize_bottomup_dd(reduced_tree, [], grammar, predicate, reachable_keys)
-    ug, s, t = unwrap_ands(gs[2], gs[0], gs, predicate)
-    assert t[0] == s
-    assert s in ug
-    return (t[0], t[1], ug)
+    fuzzer.display_tree(gs)
+    ug, us, t = unwrap_ands(gs[2], gs[0], gs, predicate)
+    gatleast.display_grammar(ug, us)
+    assert us in ug
+    assert t[0] == us
+    rg, rs, t = rename_reaching_nodes(ug, us, t)
+    assert rs in rg
+    assert t[0] == rs
+    return (t[0], t[1], rg)
+
+def find_reaching_nts(g, s):
+    order, not_used, undefined = gatleast.sort_grammar(g, s)
+    candidates = []
+    for k in order:
+        if gatleast.is_base_key(k): continue
+        k_s = get_suffix(k)
+        if k_s in candidates: continue
+        for rule in g[k]:
+            for t in rule:
+                if not fuzzer.is_nonterminal(t): continue
+                if gatleast.is_base_key(t): continue
+                if k_s == get_suffix(t):
+                    candidates.append(k_s)
+                    break
+    return candidates
+
+def rename_reaching_nodes(g, s, t):
+    new_g, new_s = g, s
+    new_tree = t
+    candidate_suffixes = find_reaching_nts(new_g, s)
+    while candidate_suffixes:
+        suffix_expr, *candidate_suffixes = candidate_suffixes
+        fault_val = new_fault_val()
+        new_g, new_s =  replace_suffix_expr_in_key_grammar(new_g, new_s, suffix_expr, fault_val)
+        new_tree = replace_suffix_in_tree(new_tree, suffix_expr, fault_val)
+    return new_g, new_s, new_tree
 
 # BEXPR_GRAMMAR = {
 #     '<start>': [['<bexpr>']],
@@ -214,6 +257,9 @@ def verify_equal_rules(rules1, rules2):
 def shrink_and_key_in_grammar(my_g, my_s, suffix_and, shrunk_and):
     return replace_suffix_expr_in_key_grammar(my_g, my_s, suffix_and, shrunk_and)
 
+def replace_and(new_g, new_s, suffix_expr, new_expr):
+    return replace_suffix_expr_in_key_grammar(new_g, new_s, suffix_expr, new_expr)
+
 
 def replace_suffix_in_tree(tree, suffix_expr, new_expr):
     name, children, *_ = tree
@@ -236,9 +282,6 @@ def replace_suffix_expr_in_key_grammar(my_g, my_s, suffix_expr, new_expr):
         else:
             new_g[new_k] = new_rules
     return new_g, new_s
-
-def replace_and(new_g, new_s, suffix_expr, new_expr):
-    return replace_suffix_expr_in_key_grammar(new_g, new_s, suffix_expr, new_expr)
 
 def unwrap_ands(g, s, t, predicate):
     #at this point, there are many and(X) wraps which only wrap one single
