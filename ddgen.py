@@ -759,29 +759,51 @@ E_GRAMMAR = {
 
 E_START = '<start>'
 
-if __name__ == '__main__':
-    my_input = '1+((1))'
-    expr_parser = earleyparser.EarleyParser(E_GRAMMAR)
-    parsed_expr = list(expr_parser.parse_on(my_input, E_START))[0]
-    reduced_expr_tree = hdd.perses_reduction(parsed_expr, E_GRAMMAR, check_doubled_paren)
 
-    pattern = ddgen(reduced_expr_tree, E_GRAMMAR, check_doubled_paren)
+L_GRAMMAR = {
+        "<start>": [
+            [ "<L>", ]
+            ],
+        "<L>": [
+            [ "<I>", "<L>" ],
+            [ "N" ]
+            ],
+        "<I>": [
+            [ "1" ],
+            [ "2" ],
+            [ "3" ]
+            ]
+        }
+L_START = '<start>'
+
+def check_12(s):
+    if '12' in s:
+        return hdd.PRes.success
+    return hdd.PRes.failed
+
+if __name__ == '__main__':
+    my_input = '112N'
+    expr_parser = earleyparser.EarleyParser(L_GRAMMAR)
+    parsed_expr = list(expr_parser.parse_on(my_input, E_START))[0]
+    reduced_expr_tree = hdd.perses_reduction(parsed_expr, L_GRAMMAR, check_12)
+    fuzzer.display_tree(reduced_expr_tree)
+    pattern = ddgen(reduced_expr_tree, L_GRAMMAR, check_12)
     gatleast.display_grammar(pattern[2], pattern[0])
 
 
     # The idea for negating these grammars is this: We extract the
     # pattern grammars out of these, and negate them
     new_grammar, new_start = negate_grammar_(pattern[2], pattern[0])
-    base_grammar = E_GRAMMAR
-    reachable_keys = gatleast.reachable_dict(E_GRAMMAR)
+    base_grammar = L_GRAMMAR
+    reachable_keys = gatleast.reachable_dict(L_GRAMMAR)
     g,s = complete(new_grammar, base_grammar, new_start, reachable_keys)
     gatleast.display_grammar(g, s)
 
     my_fuzzer = fuzzer.LimitFuzzer(g)
-    for i in range(10):
+    for i in range(100):
         t = my_fuzzer.iter_gen_key(s, max_depth=10)
         v = fuzzer.tree_to_string(t)
         print(v)
-        assert check_doubled_paren(v) == hdd.PRes.failed
+        assert check_12(v) == hdd.PRes.failed
 
 
