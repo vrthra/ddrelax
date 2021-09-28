@@ -70,28 +70,48 @@ class ReconstructRules(gexpr.ReconstructRules):
             return reach_d, reach_s
         return [], bexpr.with_key(key_to_build) #TODO
 
-    def pattern_rules_from_key(self, f_key, bexpr):
-        nbexpr = bexpr.negate()
-        f_key_i = nbexpr.with_key(f_key)
-        if f_key_i not in self.grammar: return [], []
+    def get_pattern_rule(self, f_key_n, bexpr):
+        # if the original key is not in grammar, not much we can do.
+        assert f_key_n in self.grammar
         p_rules = []
-        other_rules = []
-        for rule in self.grammar[f_key_i]:
-            has_rule = False
-            for t in rule:
-                if not fuzzer.is_nonterminal(t): continue
-                if gatleast.is_base_key(t): continue
-                # now check if t has same suffix as nbexpr
-                # TODO: verify if we need to simplify t
-                # TODO; we also need to check name for other abs. root nodes.
-                if nbexpr.with_key(t) != simplify_key(t):
-                    p_rules.append(rule)
-                    has_rule = True
-                    break
-            if not has_rule: other_rules.append(rule)
-        # Note: This assertion assumes the original grammar is suffix free.
-        assert len(p_rules) <= 1
-        return p_rules, other_rules
+        o_rules = []
+        for rule in self.grammar[f_key_n]:
+            if self.is_pattern_rule(rule):
+                p_rules.append(rule)
+            else:
+                o_rules.append(rule)
+        return p_rules, o_rules
+
+    def is_pattern_rule(self, r):
+        for t in r:
+            if self.is_pattern_token(t):
+                return True
+        return False
+
+    def is_pattern_token(self, t):
+        if not fuzzer.is_nonterminal(t): return False
+        if gatleast.is_base_key(t): return False
+        if not get_suffix(t).startswith('_tmp'): return False
+        return True
+
+    def extract_pattern_grammar(self, start):
+        # starting with `start`, extract all nodes that refer '_xx' suffixes.
+        new_grammar = {}
+        new_keys = [start]
+        while new_keys:
+            # extract all patterns
+            nk, *new_keys = new_keys
+            new_rules = [r for r in self.grammar[nk] if self.is_pattern_rule(r)]
+            if not new_rules:
+                new_grammar[nk] = self.grammar[nk] # last.
+                continue
+            new_grammar[nk] = new_rules
+            assert len(new_grammar[nk]) == 1
+            pattern_rule = new_grammar[nk][0]
+            rkeys = [t for t in pattern_rule if self.is_pattern_token(t)]
+            new_keys = new_keys + rkeys
+        return new_grammar, start
+
 
     def reconstruct_neg_bexpr(self, key, bexpr):
         fst = bexpr.op_fst()
@@ -99,24 +119,34 @@ class ReconstructRules(gexpr.ReconstructRules):
 
         # the idea is as follows: First check if this is at
         # the top of a pattern grammar. The way to check this
-        # is to get the inner(f_key) rules, and search for
-        # any other refinements in any other rules. If we
-        # have such a rule, then we have a pattern grammar.
+        # is to look for rules with nts with '_' prefix in refinement
+        # If we have such a rule, then we have a pattern grammar.
         # extract the complete pattern, negate it, then use it to
         # reconstruct. TODO:
-        negated_pattern_rules = []
-        prule, orules = self.pattern_rules_from_key(f_key, bexpr)
-        #if prule:
-        #    assert len(prule) == 1
-        negated_pattern_rules = gnegated.unmatch_definition_in_pattern_grammar(prule, self.base_grammar[key])
-        d, s = orules, bexpr.negate().with_key(key)
-        #else:
-        #    d, s = self.reconstruct_rules_from_bexpr(key, fst)
-        d1 = negate_definition(negate_nonterminal(s), d, self.base_grammar)
+
+        # bexpr is already negated. Unnegate it first
+        nbexpr = bexpr.negate()
+        f_key_n = nbexpr.with_key(f_key)
+        p_rules, o_rules = self.get_pattern_rule(f_key_n, bexpr)
+        if p_rules: # this is a pattern. Extract the full tree.
+            assert len(p_rules) == 1 # document it here if there are multiple pattern rules.
+            pg, ps = self.extract_pattern_grammar(f_key_n)
+            # now negate this with pattern negation.
+            fault_suffix = get_suffix(f_key)
+            npg, nps = gnegated.negate_pattern_grammar(pg, ps, self.base_grammar, fault_suffix)
+            self.grammar.update({k:npg[k] for k in npg if k != nps})
+            negated_pattern_rules = npg[nps]
+        else:
+            negated_pattern_rules = None # should be rest of base rules
+
+        d1 = negate_definition(f_key, o_rules, self.base_grammar)
         # at this point, we want to drop from d1 all the rules corresponding to
         # prule.
-
-        combined_rules = gmultiple.and_definitions(d1, negated_pattern_rules)
+        if negated_pattern_rules is not None:
+            combined_rules = gmultiple.and_definitions(d1, negated_pattern_rules)
+            self.grammar[f_key] = combined_rules
+        else:
+            combined_rules = d1
         return combined_rules, f_key
 
 
@@ -154,9 +184,7 @@ def ddgen(reduced_tree, grammar, predicate):
     # sufficient. The, move to the next peer, and eventually move to the parent.
     reachable_keys = gatleast.reachable_dict(grammar)
     gs = generalize_bottomup_dd(reduced_tree, [], grammar, predicate, reachable_keys)
-    fuzzer.display_tree(gs)
     ug, us, t = unwrap_ands(gs[2], gs[0], gs, predicate)
-    gatleast.display_grammar(ug, us)
     assert us in ug
     assert t[0] == us
     rg, rs, t = rename_reaching_nodes(ug, us, t)
@@ -690,8 +718,15 @@ def negate_definition(specialized_key, refined_rules, grammar):
 
     conj_negated_rules = []
     for rule in negated_rules:
-        conj_rule = [and_suffix(t, refinement)
-                        if fuzzer.is_nonterminal(t) else t for t in rule]
+        conj_rule = []
+        for t in rule:
+            if not fuzzer.is_nonterminal(t):
+                conj_rule.append(t)
+            # Only `and` those keys for which we already have component refinement
+            elif with_suffix(gmultiple.normalize(t), refinement) in grammar:
+                conj_rule.append(and_suffix(t, refinement))
+            else:
+                conj_rule.append(t)
         conj_negated_rules.append(conj_rule)
 
     return conj_negated_rules
