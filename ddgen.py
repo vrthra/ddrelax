@@ -755,7 +755,7 @@ E_GRAMMAR = {
             ['<factor>']],
  '<factor>': [['(', '<expr>', ')'],
               ['<integer>']],
- '<integer>': [['1']]}
+ '<integer>': [['0', '1']]}
 
 E_START = '<start>'
 
@@ -790,6 +790,7 @@ if __name__ == '__main__':
     reduced_expr_tree = hdd.perses_reduction(parsed_expr, L_GRAMMAR, check_12)
     fuzzer.display_tree(reduced_expr_tree)
     pattern = ddgen(reduced_expr_tree, L_GRAMMAR, check_12)
+    eg,es = pattern[2], pattern[0]
     gatleast.display_grammar(pattern[2], pattern[0])
 
 
@@ -798,14 +799,32 @@ if __name__ == '__main__':
     new_grammar, new_start = negate_grammar_(pattern[2], pattern[0])
     base_grammar = L_GRAMMAR
     reachable_keys = gatleast.reachable_dict(L_GRAMMAR)
-    g,s = complete(new_grammar, base_grammar, new_start, reachable_keys)
-    gatleast.display_grammar(g, s)
 
-    my_fuzzer = fuzzer.LimitFuzzer(g)
+    neg,nes = complete(new_grammar, base_grammar, new_start, reachable_keys)
+    gatleast.display_grammar(neg, nes)
+
+    my_fuzzer = fuzzer.LimitFuzzer(neg)
     for i in range(100):
-        t = my_fuzzer.iter_gen_key(s, max_depth=10)
+        t = my_fuzzer.iter_gen_key(nes, max_depth=10)
         v = fuzzer.tree_to_string(t)
-        print(v)
         assert check_12(v) == hdd.PRes.failed
 
+    e_parser = earleyparser.EarleyParser(eg)
+    ne_parser = earleyparser.EarleyParser(neg)
 
+    base_fuzzer = fuzzer.LimitFuzzer(L_GRAMMAR)
+    p, q, m = 0, 0, 1000
+    for i in range(m):
+        t = base_fuzzer.iter_gen_key(L_START, max_depth=10)
+        v = fuzzer.tree_to_string(t)
+        # this should be parsable by either expr_parser or
+        e_expr = list(e_parser.recognize_on(v, es))
+        if e_expr:
+            p += 1
+            ne_expr = list(ne_parser.recognize_on(v, nes))
+            assert not ne_expr
+        else:
+            ne_expr = list(ne_parser.recognize_on(v, nes))
+            assert ne_expr
+            q +=1
+    print(p,q,m)
