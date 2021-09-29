@@ -778,11 +778,13 @@ L_START = '<start>'
 
 def check_12(s):
     if '12' in s:
-        return hdd.PRes.success
+        a,b = s.split('12', 1)
+        if '3' in b:
+            return hdd.PRes.success
     return hdd.PRes.failed
 
 if __name__ == '__main__':
-    my_input = '112N'
+    my_input = '11213N'
     expr_parser = earleyparser.EarleyParser(L_GRAMMAR)
     parsed_expr = list(expr_parser.parse_on(my_input, E_START))[0]
     reduced_expr_tree = hdd.perses_reduction(parsed_expr, L_GRAMMAR, check_12)
