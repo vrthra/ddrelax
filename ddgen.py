@@ -783,22 +783,20 @@ def check_12(s):
             return hdd.PRes.success
     return hdd.PRes.failed
 
-if __name__ == '__main__':
-    my_input = '11213N'
-    expr_parser = earleyparser.EarleyParser(L_GRAMMAR)
-    parsed_expr = list(expr_parser.parse_on(my_input, E_START))[0]
-    reduced_expr_tree = hdd.perses_reduction(parsed_expr, L_GRAMMAR, check_12)
-    fuzzer.display_tree(reduced_expr_tree)
-    pattern = ddgen(reduced_expr_tree, L_GRAMMAR, check_12)
+def test_negation(G, S, P, my_input):
+    expr_parser = earleyparser.EarleyParser(G)
+    parsed_expr = list(expr_parser.parse_on(my_input, S))[0]
+    reduced_expr_tree = hdd.perses_reduction(parsed_expr, G, P)
+    #fuzzer.display_tree(reduced_expr_tree)
+    pattern = ddgen(reduced_expr_tree, G, P)
     eg,es = pattern[2], pattern[0]
-    gatleast.display_grammar(pattern[2], pattern[0])
-
+    #gatleast.display_grammar(pattern[2], pattern[0])
 
     # The idea for negating these grammars is this: We extract the
     # pattern grammars out of these, and negate them
     new_grammar, new_start = negate_grammar_(pattern[2], pattern[0])
-    base_grammar = L_GRAMMAR
-    reachable_keys = gatleast.reachable_dict(L_GRAMMAR)
+    base_grammar = G
+    reachable_keys = gatleast.reachable_dict(G)
 
     neg,nes = complete(new_grammar, base_grammar, new_start, reachable_keys)
     gatleast.display_grammar(neg, nes)
@@ -807,7 +805,7 @@ if __name__ == '__main__':
     for i in range(100):
         t = my_fuzzer.iter_gen_key(nes, max_depth=10)
         v = fuzzer.tree_to_string(t)
-        assert check_12(v) == hdd.PRes.failed
+        assert P(v) == hdd.PRes.failed
 
     e_parser = earleyparser.EarleyParser(eg)
     ne_parser = earleyparser.EarleyParser(neg)
@@ -827,4 +825,8 @@ if __name__ == '__main__':
             ne_expr = list(ne_parser.recognize_on(v, nes))
             assert ne_expr
             q +=1
-    print(p,q,m)
+
+
+if __name__ == '__main__':
+    my_input = '11213N'
+    test_negation(L_GRAMMAR, L_START, check_12, my_input)
