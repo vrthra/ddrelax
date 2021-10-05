@@ -71,7 +71,9 @@ class ReconstructRules(gexpr.ReconstructRules):
         for k in reachable_keys:
             v = bexpr.with_key(k)
             if v not in self.grammar: continue
-            reach_s, reach_d = reachable_key(self.base_grammar, k, k, bexpr._simple, self.reachable)
+            # The reach_s should be <key_to_build bexpr> and reach_d should
+            # contain insertion points for k.
+            reach_s, reach_d = reachable_key(self.base_grammar, key_to_build, k, bexpr._simple, self.reachable)
             return reach_d, reach_s
         return [], bexpr.with_key(key_to_build) #TODO
 
