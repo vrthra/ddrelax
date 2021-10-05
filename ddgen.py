@@ -61,9 +61,13 @@ class ReconstructRules(gexpr.ReconstructRules):
         self.reachable = reachable
 
     def reconstruct_orig_bexpr(self, key_to_build, bexpr):
-        # which keys can reach key_to_build that is in the gramamr given?
-        reachable_keys = [k for k in self.reachable
-                if key_to_build in self.reachable[k]]
+        # At this point, we want to build <key_to_build bexpr>. To build this
+        # key, we want another key that is already refined with bexpr that is
+        # reachable from key_to_build. i.e <my_key bexpr> where my_key is
+        # reachable from key_to_build.
+        # Once we find such a key, we can construct our <key_to_build bexpr>
+        # directly from that key using simple grammar reachability.
+        reachable_keys = self.reachable[key_to_build]
         for k in reachable_keys:
             v = bexpr.with_key(k)
             if v not in self.grammar: continue
